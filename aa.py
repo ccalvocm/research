@@ -774,7 +774,7 @@ def fixSW(ar):
     }
     ar['SW']=0
     ar['SW']=ar['NOM_CMA'].apply(lambda x: dictSW[x] if x in dictSW.keys() else 0)/ar.area*1e4
-    ar['SGW']=(ar['GW'].astype(float)+ar['SW'].astype(float))/ar.area*1e4
+    ar['SGW']=ar['GW'].astype(float)/ar.area*1e4+ar['SW'].astype(float)
     return ar
 
 def acub(ar):
