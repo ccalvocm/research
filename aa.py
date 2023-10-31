@@ -484,11 +484,6 @@ def sanitizeSjoin(gdf,field='ID'):
     gdfRet.drop_duplicates(subset=field, keep='last', inplace=True)
     return gdfRet
 
-def filterAR(ar):
-    ar['area']=ar.geometry.area/1e4
-    ar2=ar[ar['area']>1000]
-    return ar2
-
 def filterArea(uso,ar):
     usoJoin=gpd.sjoin(uso, ar, how='left', op='intersects')
     usoJoin['ID']=usoJoin.reset_index().index
@@ -498,7 +493,7 @@ def filterArea(uso,ar):
     usoSis['area']=usoSis.geometry.area/1e4
     # los sistemas mayores a 1000 ha
 
-    uso3=usoSis[usoSis['area']>1000]
+    uso3=usoSis[usoSis['area']>890]
     uso3.index.name='NOM_CANAL'
     uso3.reset_index(inplace=True)
     return uso3
@@ -618,8 +613,8 @@ def DAA():
     # drop duplicated Ndeg columns form DAA_orig_final
     DAA_orig_final = DAA_orig_final.loc[:,~DAA_orig_final.columns.duplicated()]
 
-    DAA_out = overlay(DAA_orig_final,reg_buffer)
-    DAA_orig_final.drop(index=DAA_out.index, inplace=True)
+    DAA_orig_final = overlay(DAA_orig_final,reg_buffer)
+    # DAA_orig_final.drop(index=DAA_out.index, inplace=True)
 
         # agregar daa uchile
     rutaUCH=r'G:\OneDrive - ciren.cl\2022_Ficha_Atacama\07_Datos\DAA\DAA_Uchile\DAA_uchile.shp'
@@ -627,7 +622,7 @@ def DAA():
 
     daa_uchile=gpd.overlay(df_uchile,rm)
 
-    daa_vf=add_daa_uch(DAA_orig_final,daa_uchile)
+    daa_vf=DAA_orig_final
     daa_vf=overlay(daa_vf,reg_buffer)
 
     daaRev0=fixUnits(daa_vf)
@@ -683,10 +678,12 @@ def consuntiveIrr(gdf):
 
 def overlay(gdf,reg_buffer):
     gdf=gdf.copy()
-    gdf=gpd.overlay(gdf,gpd.GeoDataFrame([], geometry=reg_buffer),how='intersection')
-    return gdf
+    gdfBuffer=gpd.GeoDataFrame([],geometry=reg_buffer)
+    gdfRet=gpd.overlay(gdf,gdfBuffer,how='intersection')
+    return gdfRet
 
 def fixUnits(gdf):
+    gdf.columns=gdf.columns.str.replace('Caudal_AnualProm_','Caudal_AnualProm')
     gdf['Unidad_de_Caudal']=units=gdf['Unidad_de_Caudal'].str.strip().str.lower()
 
     dictUnits={'lt/s':1,'m3/s':1000,'acciones':0,'lt/min':1/60.,
@@ -719,15 +716,15 @@ def sumDAA(ar,daa):
 
 def fixSW(ar):
     # arregla los daa superficiales en l/s
-    dictSW={'ACUIFERO':0,
+    dictSW={'ACUIFERO':1,
     'CANCHA DE PIEDRA': 265.4,
     'CACHAPOAL':3680, 
     # fuente: asociacion de canalistas
-    'CARMEN ALTO':8,
+    'CARMEN ALTO':8000,
     # TESIS
     'CASTILLO':3425,
     # informe
-    'CHACABUCO':0,
+    'CHACABUCO':1,
     # informe
     'CHADA TRONCO':1928.9812000000002,
     # informe
@@ -743,38 +740,41 @@ def fixSW(ar):
     'D EL CARMEN UNO': 7000,
     'D SAN FRANCISCO':1700,
     'EL PAICO':1600,
-    'ESPERANZA BAJO':3390,
+    'ESPERANZA BAJO':1800,
     'EYZAGUIRRE':11470,
     'FERNANDINO':2.901577*1e3,
     'HOSPITAL':583.28,
     'HUALEMU':2000,
     'HUECHUN':4200,
-    'HUIDOBRO':13100,
-    'ISLA DE HUECHUN':1300,
+    'HUIDOBRO':16070,
+    'ISLA DE HUECHUN':2290,
     'LA ISLA':1500,
     'LAS MERCEDES':10200,
-    'LO ESPEJO':6420.3387288,
+    # 'LO ESPEJO':6420.3387288,
     'LO HERRERA':1080,
     'LONQUEN ISLA':610,
     'LUCANO':3410,
     # https://canallucano.cl/caudales-historicos/
     'MALLARAUCO':8692.54,
     'PAINE':1.903561*1e3,
-    'POLPAICO':0,
+    'POLPAICO':1,
     'PUANGUE':3600,
     'QUINTA':3.382360*1e3,
     'SAN ANTONIO DE NALTAHUA':2460,
     'SAN DIEGO':1980,
     'SAN JOSE':3260,
     'SAN MIGUEL':4000,
-    'SANTA RITA UNO':8100,
+    'SANTA RITA UNO':5343,
     'SANTA RITA':0.557519*1e3,
     'VILUCO':2.754984*1e3,
-    'WODEHOUSE':2300  
+    'WODEHOUSE':2300,
+    'SANTA EMILIA O RULANO':883,
+    'TOMA DEL TORO':58,
+    'UNIFICADO AGUILA NORTE AGUILA SUR':583
     }
     ar['SW']=0
-    ar['SW']=ar['NOM_CMA'].apply(lambda x: dictSW[x] if x in dictSW.keys() else 0)/ar.area
-    ar['SGW']=(ar['GW'].astype(float)+ar['SW'].astype(float))/ar.area
+    ar['SW']=ar['NOM_CMA'].apply(lambda x: dictSW[x] if x in dictSW.keys() else 0)/ar.area*1e4
+    ar['SGW']=(ar['GW'].astype(float)+ar['SW'].astype(float))/ar.area*1e4
     return ar
 
 def acub(ar):
@@ -798,9 +798,7 @@ def mapCANMA(gdf1,gdf2):
 def canMA(ar):
     can=gpd.read_file(os.path.join('.','data','Maipo','Canales_Maipo.shp'))
     ar['COD_CMA']=ar['COD_CANAL'].apply(lambda x: x[:14].ljust(20, '0'))
-    arMA=ar.dissolve(by='COD_CMA')
-    arMA['area']=arMA.geometry.area/1e4
-    arCANMA=arMA[arMA['area']>1000]
+    arCANMA=ar.dissolve(by='COD_CMA')
     arCANMA.reset_index(inplace=True)
 
     # lookup codMa in can['COD_CANAL']
@@ -808,7 +806,8 @@ def canMA(ar):
     arCANMA['NOM_CMA']=mapCANMA(arCANMA,can)
     dictCanMa={'CALERA':'COMUN ASOCIACION CANALES DEL MAIPO',
     'SAN VICENTE':'COMUN ASOCIACION CANALES DEL MAIPO',
-    'SANTA CRUZ':'COMUN ASOCIACION CANALES DEL MAIPO',}
+    'SANTA CRUZ':'COMUN ASOCIACION CANALES DEL MAIPO',
+    'LO ESPEJO':'COMUN ASOCIACION CANALES DEL MAIPO'}
     # rename arCANMA arCANMA according to dictCanMa
     arCANMA['NOM_CMA']=arCANMA['NOM_CMA'].apply(lambda x: dictCanMa[x] if x in dictCanMa.keys() else x)
     arCANMA=arCANMA.dissolve(by='NOM_CMA')
@@ -816,15 +815,17 @@ def canMA(ar):
     return arCANMA
 
 def fixAR(ar):
-    idx=ar[ar['NOM_CMA'].isin(['TOMA RIO MAIPO','SIN INFORMACION'])].index
+    idx=ar[ar['NOM_CMA'].isin(['TOMA RIO MAIPO','SIN INFORMACION',
+    'DERRAMES','COLINA SUR',
+    'UNIFICADO RINCONADA Y LA LOMA'])].index
     ar.drop(index=idx,inplace=True)
     del ar['index_right']
     return ar
 
 def main():
+    daa=DAA()
     uso,ar=load()
     uso2=filterArea(uso,ar)
-    daa=DAA()
     arCANMA=canMA(uso2)
     arCANMAfix=fixAR(arCANMA)
     arDAA=sumDAA(arCANMAfix,daa)
@@ -833,10 +834,6 @@ def main():
     driver='GPKG')
 
     # now merge ar and arCANMA con COD_CANAL
-   
-
-
-
 
 if __name__=='__main__':
     main()
