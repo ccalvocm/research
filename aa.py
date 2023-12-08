@@ -712,6 +712,7 @@ def sumDAA(ar,daa):
     # overlay sw in ar geometries and sum each by 'Caudal_AnualProm' in sw
 
     ar['GW']=sumOverlayGeometry(ar,gw)
+    ar['GW']=ar['GW']/ar.area*1e4
     return ar
 
 def fixSW(ar):
@@ -737,7 +738,7 @@ def fixSW(ar):
     'COLINA':550,
     'COMUN ASOCIACION CANALES DEL MAIPO':35000,
     'CULIPRAN':5000,
-    'D EL CARMEN UNO': 7000,
+    'D EL CARMEN UNO': 5710,
     'D SAN FRANCISCO':1700,
     'EL PAICO':1600,
     'ESPERANZA BAJO':1800,
@@ -751,7 +752,7 @@ def fixSW(ar):
     'LA ISLA':1500,
     'LAS MERCEDES':10200,
     # 'LO ESPEJO':6420.3387288,
-    'LO HERRERA':1080,
+    'LO HERRERA':2000,
     'LONQUEN ISLA':610,
     'LUCANO':3410,
     # https://canallucano.cl/caudales-historicos/
