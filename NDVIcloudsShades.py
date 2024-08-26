@@ -47,8 +47,8 @@ def qa(img):
     return cloudMaskedImg
 
 def NDVI(image):
-    image=image.scale(2.75e-05).ass(-0.2)
-    ndvi = image.normalizedDifference(['SR_B5','SR_B4']).rename("NDVI")
+    image = image.multiply(2.75e-05).subtract(0.2)
+    ndvi = image.normalizedDifference(['SR_B5', 'SR_B4']).rename("NDVI")
     image = image.addBands(ndvi)
     return image.select("NDVI")
 
